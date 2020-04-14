@@ -1,3 +1,6 @@
+import socket
+import struct
+import codecs
 class IpPacket(object):
     """
     Represents the *required* data to be extracted from an IP packet.
@@ -24,6 +27,27 @@ class TcpPacket(object):
         self.payload = payload
 
 
+#return source_port, dest_port, data_length, checksum, data
+
+class UdpPacket(object):
+    """
+    Represents the *required* data to be extracted from a TCP packet.
+    """
+
+    def __init__(self, src_port, dst_port, data_length, checksum,data):
+        self.src_port = src_port
+        self.dst_port = dst_port
+        self.data_length = data_length
+        self.checksum = checksum
+        self.data = data
+
+def parse_udp_hacker(packet: bytes):
+    header = packet[:8]
+    data = packet[8:]
+    source_port, dest_port,data_length, checksum = struct.unpack("!HHHH", header)
+    return UdpPacket(source_port, dest_port, data_length, checksum, data)
+
+
 def parse_raw_ip_addr(raw_ip_addr: bytes) -> str:
     destip = raw_ip_addr[:4]
     ips = ""
@@ -34,19 +58,33 @@ def parse_raw_ip_addr(raw_ip_addr: bytes) -> str:
     return ips
 
 
-def parse_application_layer_packet(ip_packet_payload: bytes) -> TcpPacket:
+
+
+
+def parse_application_layer_packet(raw_data: bytes) -> TcpPacket:
     # Parses raw bytes of a TCP packet
     # That's a byte literal (~byte array) check resources section
-    return TcpPacket(-1, -1, -1, b'')
+    src_port, dest_port, sequence, acknowledgment, offset_reserved_flags =struct.unpack('!HHLLH', raw_data[:14])
+    offset = (raw_data[12] >> 4) & 0x0F
+    payload_data = raw_data[4*offset:]
+    return TcpPacket(src_port, dest_port, offset, payload_data)
 
 
 def parse_network_layer_packet(ip_packet: bytes) -> IpPacket:
-    # Parses raw bytes of an IPv4 packet
-    # That's a byte literal (~byte array) check resources section
-    return IpPacket(-1, -1, "0.0.0.0", "0.0.0.0", b'')
+    ihl = ip_packet[0] & 0x0F
+    protocol = ip_packet[9]
+    source_address = parse_raw_ip_addr(ip_packet[12:16])
+    destination_address = parse_raw_ip_addr(ip_packet[16:20])
+    payload = ip_packet[ihl*4:]
+    return IpPacket(protocol, ihl, source_address, destination_address, payload)
 
 
 
-ip_raw = b'\x7f\x00\x00\x01'
-actual_value = parse_raw_ip_addr(ip_raw)
-print(actual_value)
+
+def main():
+    sniffer = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
+    packet_rec , address_ = sniffer.recvfrom(4096)
+    hexlify_packet = codecs.getencoder(packet_rec)
+    parsed_hexlify_packet = parse_network_layer_packet(hexlify_packet)
+if __name__ == "__main__":
+    main()
