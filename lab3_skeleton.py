@@ -29,21 +29,6 @@ class TcpPacket(object):
         self.payload = payload
 
 
-#return source_port, dest_port, data_length, checksum, data
-
-class UdpPacket(object):
-    """
-    Represents the *required* data to be extracted from a TCP packet.
-    """
-
-    def __init__(self, src_port, dst_port, data_length, checksum,data):
-        self.src_port = src_port
-        self.dst_port = dst_port
-        self.data_length = data_length
-        self.checksum = checksum
-        self.data = data
-
-
 
 def parse_raw_ip_addr(raw_ip_addr: bytes) -> str:
     destip = raw_ip_addr[:4]
@@ -66,17 +51,19 @@ def parse_application_layer_packet(ip_packet_payload: bytes) -> TcpPacket:
     data_offset = (ip_packet_payload[12] >> 4) & (0x0F)
     payload = ip_packet_payload[ 4*data_offset:]
     
-    # payload=payload.decode('utf-8')
     return TcpPacket(src_ip, dst_ip, data_offset, payload)
 
 
 def parse_network_layer_packet(ip_packet: bytes) -> IpPacket:
-    ihl = ip_packet[0] & 0x0F
+    ihl = ip_packet[0]
+    ihl_hex=ihl and 0x0F
     protocol = ip_packet[9]
-    source_address = parse_raw_ip_addr(ip_packet[12:16])
-    destination_address = parse_raw_ip_addr(ip_packet[16:20])
-    payload = ip_packet[ihl*4:]
-    return IpPacket(protocol, ihl, source_address, destination_address, payload)
+    src_add_=ip_packet[12:16]
+    source_address = parse_raw_ip_addr(src_add_)
+    des_add_=ip_packet[16:20]
+    destination_address = parse_raw_ip_addr(des_add_)
+    payload = ip_packet[ihl_hex*4:]
+    return IpPacket(protocol, ihl_hex, source_address, destination_address, payload)
 
 
 def main():
@@ -94,6 +81,7 @@ def main():
         except:
             pass
 
+        # print("*"*50)
         
 if __name__ == "__main__":
     main()
