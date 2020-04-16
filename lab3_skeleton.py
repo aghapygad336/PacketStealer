@@ -1,6 +1,8 @@
 import socket
 import struct
 import codecs
+import binascii
+
 class IpPacket(object):
     """
     Represents the *required* data to be extracted from an IP packet.
@@ -41,11 +43,6 @@ class UdpPacket(object):
         self.checksum = checksum
         self.data = data
 
-def parse_udp_hacker(packet: bytes):
-    header = packet[:8]
-    data = packet[8:]
-    source_port, dest_port,data_length, checksum = struct.unpack("!HHHH", header)
-    return UdpPacket(source_port, dest_port, data_length, checksum, data)
 
 
 def parse_raw_ip_addr(raw_ip_addr: bytes) -> str:
@@ -61,13 +58,16 @@ def parse_raw_ip_addr(raw_ip_addr: bytes) -> str:
 
 
 
-def parse_application_layer_packet(raw_data: bytes) -> TcpPacket:
-    # Parses raw bytes of a TCP packet
-    # That's a byte literal (~byte array) check resources section
-    src_port, dest_port, sequence, acknowledgment, offset_reserved_flags =struct.unpack('!HHLLH', raw_data[:14])
-    offset = (raw_data[12] >> 4) & 0x0F
-    payload_data = raw_data[4*offset:]
-    return TcpPacket(src_port, dest_port, offset, payload_data)
+def parse_application_layer_packet(ip_packet_payload: bytes) -> TcpPacket:
+    src_port_unpack = struct.unpack('!H', ip_packet_payload[:2])
+    src_ip=src_port_unpack[0]
+    dst_port_unpack = struct.unpack('!H', ip_packet_payload[2:4])
+    dst_ip=dst_port_unpack[0]
+    data_offset = (ip_packet_payload[12] >> 4) & (0x0F)
+    payload = ip_packet_payload[ 4*data_offset:]
+    
+    # payload=payload.decode('utf-8')
+    return TcpPacket(src_ip, dst_ip, data_offset, payload)
 
 
 def parse_network_layer_packet(ip_packet: bytes) -> IpPacket:
@@ -79,12 +79,21 @@ def parse_network_layer_packet(ip_packet: bytes) -> IpPacket:
     return IpPacket(protocol, ihl, source_address, destination_address, payload)
 
 
-
-
 def main():
-    sniffer = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
-    packet_rec , address_ = sniffer.recvfrom(4096)
-    hexlify_packet = codecs.getencoder(packet_rec)
-    parsed_hexlify_packet = parse_network_layer_packet(hexlify_packet)
+    sniffer = socket.socket(socket.AF_INET, socket.SOCK_RAW, 0x06)
+    iface_name = "lo"
+    sniffer.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, bytes(iface_name, "ASCII"))
+    
+    while True:
+        
+        packet_rec , address_ = sniffer.recvfrom(4096)
+        parsed_hexlify_packet = parse_network_layer_packet(packet_rec)
+        payload = parse_application_layer_packet(parsed_hexlify_packet.payload)
+        try :
+            print(payload.payload.decode("utf-8") )
+        except:
+            pass
+
+        
 if __name__ == "__main__":
     main()
