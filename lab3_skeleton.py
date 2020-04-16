@@ -29,6 +29,21 @@ class TcpPacket(object):
         self.payload = payload
 
 
+#return source_port, dest_port, data_length, checksum, data
+
+class UdpPacket(object):
+    """
+    Represents the *required* data to be extracted from a TCP packet.
+    """
+
+    def __init__(self, src_port, dst_port, data_length, checksum,data):
+        self.src_port = src_port
+        self.dst_port = dst_port
+        self.data_length = data_length
+        self.checksum = checksum
+        self.data = data
+
+
 
 def parse_raw_ip_addr(raw_ip_addr: bytes) -> str:
     destip = raw_ip_addr[:4]
@@ -55,15 +70,13 @@ def parse_application_layer_packet(ip_packet_payload: bytes) -> TcpPacket:
 
 
 def parse_network_layer_packet(ip_packet: bytes) -> IpPacket:
-    ihl = ip_packet[0]
-    ihl_hex=ihl and 0x0F
     protocol = ip_packet[9]
-    src_add_=ip_packet[12:16]
-    source_address = parse_raw_ip_addr(src_add_)
-    des_add_=ip_packet[16:20]
-    destination_address = parse_raw_ip_addr(des_add_)
-    payload = ip_packet[ihl_hex*4:]
-    return IpPacket(protocol, ihl_hex, source_address, destination_address, payload)
+    ihl = ip_packet[0] &(0x0F)
+    source_address=parse_raw_ip_addr(ip_packet[12:16])
+    destination_address=parse_raw_ip_addr(ip_packet[16:20])
+    payload = ip_packet[ihl*4:]
+    return IpPacket(protocol, ihl, source_address, destination_address, payload)
+
 
 
 def main():
@@ -74,6 +87,7 @@ def main():
     while True:
         
         packet_rec , address_ = sniffer.recvfrom(4096)
+        # print("PACKET",packet_rec)
         parsed_hexlify_packet = parse_network_layer_packet(packet_rec)
         payload = parse_application_layer_packet(parsed_hexlify_packet.payload)
         try :
