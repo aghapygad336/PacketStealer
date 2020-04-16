@@ -29,19 +29,8 @@ class TcpPacket(object):
         self.payload = payload
 
 
-#return source_port, dest_port, data_length, checksum, data
 
-class UdpPacket(object):
-    """
-    Represents the *required* data to be extracted from a TCP packet.
-    """
 
-    def __init__(self, src_port, dst_port, data_length, checksum,data):
-        self.src_port = src_port
-        self.dst_port = dst_port
-        self.data_length = data_length
-        self.checksum = checksum
-        self.data = data
 
 
 
